@@ -17,7 +17,11 @@ const io = new Server(server, {
     origin:
       process.env.NODE_ENV === "production"
         ? process.env.FRONTEND_URL
-        : ["http://localhost:8080", "http://localhost:5000"],
+        : [
+            "http://localhost:8080",
+            "http://localhost:5000",
+            "http://localhost:3000",
+          ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -28,7 +32,11 @@ app.use(
     origin:
       process.env.NODE_ENV === "production"
         ? process.env.FRONTEND_URL
-        : ["http://localhost:8080", "http://localhost:5000"],
+        : [
+            "http://localhost:8080",
+            "http://localhost:5000",
+            "http://localhost:3000",
+          ],
     credentials: true,
   }),
 );
@@ -99,11 +107,19 @@ io.on("connection", (socket) => {
   socket.on("send_message", async (data) => {
     try {
       console.log("Message received:", data);
-      const savedMessage = await messageService.saveMessage(data.room, {
-        message: data.message,
-        username: data.username || "Anonymous",
-        userId: socketId,
-      });
+      if (!data.message || !data.room) {
+        console.error("Missing required fields");
+        socket.emit("error", { message: "Message and room are required" });
+        return;
+      }
+      const savedMessage = await messageService.saveMessage(
+        data.room,
+        {
+          content: data.message,
+          username: data.username || "Anonymous",
+        },
+        socket.id,
+      );
 
       io.to(data.room).emit("receive_message", {
         _id: savedMessage._id,
@@ -120,14 +136,13 @@ io.on("connection", (socket) => {
 
   socket.on("typing", (data) => {
     socket.to(data.room).emit("user_typing", {
-      userId: socket.id,
       username: data.username,
     });
   });
 
   socket.on("stop_typing", (data) => {
     socket.to(data.room).emit("user_stop_typing", {
-      userId: socket.id,
+      username: data.username,
     });
   });
 

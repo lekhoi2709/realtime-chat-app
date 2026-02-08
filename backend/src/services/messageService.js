@@ -2,13 +2,13 @@ const Message = require("../models/Message");
 const Room = require("../models/Room");
 
 class MessageService {
-  async saveMessage(roomName, messageData) {
+  async saveMessage(roomName, messageData, socketId) {
     try {
       const message = await Message.create({
         room: roomName,
         message: messageData.content,
         username: messageData.username || "Anonymous",
-        userId: messageData.userId,
+        userId: socketId,
         timestamp: new Date(),
       });
 
