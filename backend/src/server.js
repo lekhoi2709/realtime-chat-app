@@ -1,12 +1,15 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
 const connectDB = require("./config/database");
-const messageService = require("./services/messageService");
+const { socketAuthMiddleware } = require("./middlewares/auth");
+const conversationService = require("./services/conversationService");
+const User = require("./models/User");
+
 const apiRoutes = require("./routes/apiRoute");
 
 const app = express();
@@ -17,11 +20,7 @@ const io = new Server(server, {
     origin:
       process.env.NODE_ENV === "production"
         ? process.env.FRONTEND_URL
-        : [
-            "http://localhost:8080",
-            "http://localhost:5000",
-            "http://localhost:3000",
-          ],
+        : ["http://localhost:5000", "http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -32,11 +31,7 @@ app.use(
     origin:
       process.env.NODE_ENV === "production"
         ? process.env.FRONTEND_URL
-        : [
-            "http://localhost:8080",
-            "http://localhost:5000",
-            "http://localhost:3000",
-          ],
+        : ["http://localhost:5000", "http://localhost:3000"],
     credentials: true,
   }),
 );
@@ -64,103 +59,137 @@ app.use("/api", apiRoutes);
 
 const onlineUsers = new Map();
 
+io.use(socketAuthMiddleware);
+
 io.on("connection", (socket) => {
-  console.log("New user connected: ", socket.id);
+  onlineUsers.set(socket.userId, socket.id);
 
-  socket.on("join_room", async (data) => {
+  User.findByIdAndUpdate(socket.userId, {
+    status: "online",
+    lastSeen: new Date(),
+  }).exec();
+
+  socket.broadcast.emit("user_online", {
+    userId: socket.userId,
+    status: "online",
+  });
+
+  socket.join(`user:${socket.userId}`);
+
+  socket.on("join_conversation", async (data) => {
     try {
-      const roomName = data.room || data;
-      const username = data.username || "Anonymous";
+      const { conversationId } = data;
+      socket.join(`conversation:${conversationId}`);
 
-      socket.join(roomName);
-      console.log(`User ${username} has joined room: ${roomName}`);
-
-      if (!onlineUsers.has(roomName)) {
-        onlineUsers.set(roomName, new Set());
-      }
-      onlineUsers.get(roomName).add(socket.id);
-
-      await messageService.getOrCreateRoom(roomName);
-
-      const messages = await messageService.getMessage(roomName);
-      socket.emit("message_history", {
-        room: roomName,
-        messages,
-      });
-
-      const onlineCount = onlineUsers.get(roomName).size;
-      io.to(roomName).emit("online_users", {
-        count: onlineCount,
-      });
-
-      socket.to(roomName).emit("user_joined", {
-        userId: socket.id,
-        username,
-        message: `${username} joined room`,
-      });
+      await conversationService.markAsRead(conversationId, socket.userId);
+      socket.emit("conversation_joined", { conversationId });
     } catch (error) {
-      console.error("Error joining room:", error);
-      socket.emit("error", { message: "Failed to join room" });
+      console.error("Error joining conversation:", error);
+      socket.emit("error", { message: error.message });
     }
+  });
+
+  socket.on("leave_conversation", (data) => {
+    const { conversationId } = data;
+    socket.leave(`conversation:${conversationId}`);
   });
 
   socket.on("send_message", async (data) => {
     try {
-      console.log("Message received:", data);
-      if (!data.message || !data.room) {
-        console.error("Missing required fields");
-        socket.emit("error", { message: "Message and room are required" });
-        return;
-      }
-      const savedMessage = await messageService.saveMessage(
-        data.room,
-        {
-          content: data.message,
-          username: data.username || "Anonymous",
-        },
-        socket.id,
+      const { conversationId, content } = data;
+
+      const message = await conversationService.sendMessage(
+        conversationId,
+        socket.userId,
+        content,
       );
 
-      io.to(data.room).emit("receive_message", {
-        _id: savedMessage._id,
-        message: savedMessage.message,
-        userId: savedMessage.userId,
-        username: savedMessage.username,
-        timestamp: savedMessage.timestamp,
+      io.to(`conversation:${conversationId}`).emit("receive_message", {
+        conversationId,
+        message: {
+          _id: message._id,
+          content: message.content,
+          sender: message.sender,
+          createdAt: message.createAt,
+          readBy: message.readBy,
+        },
       });
+
+      const conversation = await conversationService
+        .createGroupConversation(socket.userId)
+        .then((convers) =>
+          convers.find((c) => c._id.toString() === conversationId),
+        );
+
+      if (conversation) {
+        conversation.participants.forEach((participant) => {
+          const participantId = participant._id.toString();
+          if (
+            participantId !== socket.userId &&
+            !onlineUsers.has(participantId)
+          ) {
+            console.log(
+              `User ${participantId} is offline, would send notification`,
+            );
+          }
+        });
+      }
     } catch (error) {
       console.error("Error sending message:", error);
-      socket.emit("error", { message: "Failed to send message" });
+      socket.emit("error", { message: error.message });
     }
   });
 
-  socket.on("typing", (data) => {
-    socket.to(data.room).emit("user_typing", {
-      username: data.username,
+  socket.on("typing", async (data) => {
+    const { conversationId } = data;
+    socket.to(`conversation:${conversationId}`).emit("user_typing", {
+      conversationId,
+      userId: socket.userId,
+      user: socket.user,
     });
   });
 
   socket.on("stop_typing", (data) => {
-    socket.to(data.room).emit("user_stop_typing", {
-      username: data.username,
+    const { conversationId } = data;
+    socket.to(`conversation:${conversationId}`).emit("user_stop_typing", {
+      conversationId,
+      userId: socket.userId,
     });
   });
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+  socket.on("friend_request_sent", async (data) => {
+    const { targetUserId } = data;
+    const targetSocketId = onlineUsers.get(targetUserId);
 
-    onlineUsers.forEach((users, roomName) => {
-      if (users.has(socket.id)) {
-        users.delete(socket.id);
+    if (targetSocketId) {
+      io.to(`user:${targetUserId}`).emit("friend_request_received", {
+        from: socket.user,
+      });
+    }
+  });
 
-        io.to(roomName).emit("online_users", {
-          count: users.size,
-        });
+  socket.on("friend_request_accepted", async (data) => {
+    const { targetUserId } = data;
 
-        if (users.size === 0) {
-          onlineUsers.delete(roomName);
-        }
-      }
+    io.to(`user:${targetUserId}`).emit("friend_request_accepted", {
+      friend: socket.user,
+    });
+  });
+
+  socket.on("disconnect", async () => {
+    console.log("❌ User disconnected:", socket.userId);
+
+    onlineUsers.delete(socket.userId);
+
+    await User.findByIdAndUpdate(socket.userId, {
+      status: "offline",
+      lastSeen: new Date(),
+    });
+
+    socket.broadcast.emit("user_offline", {
+      userId: socket.userId,
+      status: "offline",
+      lastSeen: new Date(),
     });
   });
 });

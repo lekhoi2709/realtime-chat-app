@@ -2,33 +2,49 @@ const mongoose = require("mongoose");
 
 const messageSchema = mongoose.Schema(
   {
-    room: {
-      type: String,
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
       required: true,
       index: true,
     },
-    message: {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    content: {
       type: String,
       required: true,
       trim: true,
     },
-    username: {
+    messageType: {
       type: String,
-      required: true,
-      default: "Anonymous",
+      enum: ["text", "image", "file", "system"],
+      default: "text",
     },
-    userId: {
-      type: String,
-      required: true,
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
+    readBy: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        readAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamp: true },
 );
 
-messageSchema.index({ room: 1, timestamp: -1 });
+messageSchema.index({ conversationId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Message", messageSchema);
