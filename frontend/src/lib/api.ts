@@ -65,6 +65,13 @@ class ApiService {
     return this.request("/auth/profile");
   }
 
+  async updateProfile(data: { displayName: string }) {
+    return this.request("/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async logout() {
     return this.request("/auth/logout", { method: "POST" });
   }

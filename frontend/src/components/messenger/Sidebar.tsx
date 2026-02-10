@@ -12,6 +12,7 @@ interface SidebarProps {
   onOpenAddFriend: () => void;
   onOpenCreateGroup: () => void;
   onOpenFriendRequests: () => void;
+  onOpenEditProfile: () => void;
   friendRequestCount: number;
 }
 
@@ -23,6 +24,7 @@ export default function Sidebar({
   onOpenAddFriend,
   onOpenCreateGroup,
   onOpenFriendRequests,
+  onOpenEditProfile,
   friendRequestCount,
 }: SidebarProps) {
   const { user, logout } = useAuth();
@@ -38,14 +40,6 @@ export default function Sidebar({
     );
     return otherUser?.displayName || otherUser?.username || "Unknown";
   };
-
-  // const getConversationAvatar = (conversation: Conversation) => {
-  //   if (conversation.type === "group") {
-  //     return conversation.avatar;
-  //   }
-  //   const otherUser = conversation.participants.find((p) => p._id !== user?._id);
-  //   return otherUser?.avatar;
-  // };
 
   const getInitials = (name: string) => {
     return name
@@ -96,22 +90,60 @@ export default function Sidebar({
               {user && getInitials(user.displayName)}
             </button>
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                <div className="px-4 py-2 border-b border-gray-200">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
+                <div className="px-4 py-3 border-b border-gray-200">
                   <p className="font-semibold text-gray-900">
                     {user?.displayName}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    @{user?.username}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
                     Code: {user?.friendCode}
                   </p>
                 </div>
                 <button
                   onClick={() => {
+                    setShowUserMenu(false);
+                    onOpenEditProfile();
+                  }}
+                  className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Profile
+                </button>
+                <button
+                  onClick={() => {
                     logout();
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition"
+                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition flex items-center gap-2"
                 >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
+                  </svg>
                   Logout
                 </button>
               </div>

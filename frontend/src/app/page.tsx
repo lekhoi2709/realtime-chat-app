@@ -13,6 +13,7 @@ import CreateGroupModal from "@/components/messenger/CreateGroupModal";
 import { api } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { Conversation, User, FriendRequest } from "@/types/chat";
+import EditProfileModal from "@/components/auth/EditProfileModal";
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
@@ -27,6 +28,7 @@ export default function Home() {
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showFriendRequests, setShowFriendRequests] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -91,20 +93,6 @@ export default function Home() {
     }
   };
 
-  // const handleStartChatWithFriend = async (friendId: string) => {
-  //   try {
-  //     const response = await api.createPrivateConversation(friendId);
-  //     setConversations((prev) => {
-  //       const exists = prev.find((c) => c._id === response.conversation._id);
-  //       if (exists) return prev;
-  //       return [...prev, response.conversation];
-  //     });
-  //     setActiveConversation(response.conversation);
-  //   } catch (error) {
-  //     console.error("Failed to start chat:", error);
-  //   }
-  // };
-
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -135,6 +123,7 @@ export default function Home() {
         onOpenAddFriend={() => setShowAddFriend(true)}
         onOpenCreateGroup={() => setShowCreateGroup(true)}
         onOpenFriendRequests={() => setShowFriendRequests(true)}
+        onOpenEditProfile={() => setShowEditProfile(true)}
         friendRequestCount={friendRequests.length}
       />
 
@@ -181,6 +170,10 @@ export default function Home() {
         onClose={() => setShowCreateGroup(false)}
         friends={friends}
         onGroupCreated={loadData}
+      />
+      <EditProfileModal
+        isOpen={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
       />
     </div>
   );
