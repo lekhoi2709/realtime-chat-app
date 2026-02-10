@@ -25,7 +25,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
   try {
     res.json({
       user: {
-        id: req.user._id,
+        _id: req.user._id,
         username: req.user.username,
         email: req.user.email,
         friendCode: req.user.friendCode,

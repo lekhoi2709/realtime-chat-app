@@ -110,7 +110,7 @@ io.on("connection", (socket) => {
           _id: message._id,
           content: message.content,
           sender: message.sender,
-          createdAt: message.createAt,
+          createdAt: message.createdAt,
           readBy: message.readBy,
         },
       });
@@ -154,6 +154,7 @@ io.on("connection", (socket) => {
     socket.to(`conversation:${conversationId}`).emit("user_stop_typing", {
       conversationId,
       userId: socket.userId,
+      user: socket.user,
     });
   });
 
