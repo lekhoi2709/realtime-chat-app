@@ -40,6 +40,40 @@ router.get("/profile", authMiddleware, async (req, res) => {
   }
 });
 
+router.patch("/profile", authMiddleware, async (req, res) => {
+  try {
+    const { displayName } = req.body;
+
+    if (!displayName || displayName.trim().length === 0) {
+      return res.status(400).json({ error: "Display name is required" });
+    }
+
+    if (displayName.trim().length > 50) {
+      return res
+        .status(400)
+        .json({ error: "Display name is too long (max 50 characters)" });
+    }
+
+    req.user.displayName = displayName.trim();
+    await req.user.save();
+
+    res.json({
+      user: {
+        _id: req.user._id,
+        username: req.user.username,
+        email: req.user.email,
+        friendCode: req.user.friendCode,
+        displayName: req.user.displayName,
+        avatar: req.user.avatar,
+        bio: req.user.bio,
+        status: req.user.status,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post("/logout", authMiddleware, async (req, res) => {
   try {
     req.user.status = "offline";
