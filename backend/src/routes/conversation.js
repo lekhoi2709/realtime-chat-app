@@ -1,9 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const conversationService = require("../services/conversationService");
-const { authMiddleware } = require("../middlewares/auth");
-
-router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
   try {

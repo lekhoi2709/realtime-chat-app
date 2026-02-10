@@ -54,21 +54,23 @@ const userSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    friendRequests: {
-      from: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+    friendRequests: [
+      {
+        from: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        status: {
+          type: String,
+          enum: ["pending", "accepted", "rejected"],
+          default: "pending",
+        },
+        createAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
-      status: {
-        type: String,
-        enum: ["pending", "accepted", "rejected"],
-        default: "pending",
-      },
-      createAt: {
-        type: Date,
-        default: Date.now,
-      },
-    },
+    ],
     lastSeen: {
       type: Date,
       default: Date.now,
@@ -77,15 +79,14 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
   } catch (error) {
-    next(error);
+    throw error;
   }
 });
 

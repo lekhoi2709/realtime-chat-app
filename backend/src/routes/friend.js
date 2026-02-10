@@ -1,9 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const friendService = require("../services/friendService");
-const { authMiddleware } = require("../middlewares/auth");
-
-router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
   try {
@@ -27,7 +24,7 @@ router.post("/request", async (req, res) => {
   }
 });
 
-router.get("requests", async (req, res) => {
+router.get("/requests", async (req, res) => {
   try {
     const requests = await friendService.getFriendRequests(req.userId);
     res.json({ requests });

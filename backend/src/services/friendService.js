@@ -13,7 +13,7 @@ class FriendService {
         throw new Error("Cannot add yourself as friend");
       }
 
-      const user = await User.indById(userId);
+      const user = await User.findById(userId);
 
       if (user.friends.includes(userFriend._id)) {
         throw new Error("Already friends with this user");

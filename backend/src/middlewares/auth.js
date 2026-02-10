@@ -2,7 +2,7 @@ const authService = require("../services/authService");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.header.authorization?.replace("Bearer ", "");
+    const token = req.headers["authorization"].replace("Bearer ", "");
 
     if (!token) {
       return res.status(401).json({ error: "Authentication required" });
